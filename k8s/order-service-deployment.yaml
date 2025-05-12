@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: azhim321/order-service:latest
+        ports:
+        - containerPort: 9001
+        env:
+        - name: RABBITMQ_HOST
+          value: "host.docker.internal"
+        - name: DB_HOST
+          value: "host.docker.internal"
+        - name: DB_PORT
+          value: "10100"
+        - name: DB_DATABASE
+          value: "pesan_makanan"
+        - name: DB_USERNAME
+          value: "root"
+        - name: DB_PASSWORD
+          value: "root"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+  - port: 9001
+    targetPort: 9001
+    nodePort: 30001
+  type: NodePort

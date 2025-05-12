@@ -5,6 +5,11 @@
      use App\Models\Pesanan;
      use Illuminate\Http\Request;
      use Illuminate\Support\Facades\Http;
+     use PhpAmqpLib\Connection\AMQPStreamConnection;
+     use PhpAmqpLib\Message\AMQPMessage;
+        use PhpAmqpLib\Channel\AMQPChannel;
+        use PhpAmqpLib\Exception\AMQPConnectionClosedException;
+        use PhpAmqpLib\Exception\AMQPProtocolChannelException;
 
      class OrderController extends Controller
      {
@@ -52,6 +57,30 @@
                  'total_harga' => $request->total_harga,
                  'status' => 'menunggu'
              ]);
+
+           // Kirim pesan ke RabbitMQ
+            try {
+                $connection = new AMQPStreamConnection('rabbitmq', 15673, 'guest', 'guest');
+                $channel = $connection->channel();
+                $channel->queue_declare('pesanan_baru', false, false, false, false);
+
+                $message = new AMQPMessage(json_encode([
+                    'pelanggan_id' => $pelangganId,
+                    'menu' => $request->menu,
+                    'jumlah' => $request->jumlah,
+                    'total_harga' => $request->total_harga,
+                    'status' => 'menunggu'
+                ]));
+                $channel->basic_publish($message, '', 'pesanan_baru');
+
+                $channel->close();
+                $connection->close();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'gagal',
+                    'pesan' => 'Gagal mengirim pesan ke RabbitMQ: ' . $e->getMessage()
+                ], 500);
+            }
 
              return response()->json([
                  'status' => 'sukses',

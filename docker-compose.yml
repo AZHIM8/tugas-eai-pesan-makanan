@@ -1,0 +1,122 @@
+services:
+  app:
+    build:
+      context: ./customer-service
+      dockerfile: Dockerfile
+    image: customer-service
+    container_name: customer-service
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      APP_ENV: production
+      DB_HOST: db
+      DB_DATABASE: customer_service_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      RABBITMQ_HOST: rabbitmq
+    working_dir: /var/www
+    volumes:
+      - ./customer-service:/var/www
+      - ./customer-service/storage/php.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      - db
+      - rabbitmq
+    networks:
+      - pesan-makanan-net
+
+  order-app:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    image: order-service
+    container_name: order-service
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: order-app
+      APP_ENV: production
+      DB_HOST: db
+      DB_DATABASE: order_service_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      RABBITMQ_HOST: rabbitmq
+    working_dir: /var/www
+    volumes:
+      - ./order-service:/var/www
+      - ./order-service/storage/php.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      - db
+      - rabbitmq
+    networks:
+      - pesan-makanan-net
+
+  webserver:
+    image: nginx:alpine
+    container_name: nginxcustomer-services
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "8000:80"  # Port untuk customer-service
+      - "8001:81"  # Port terpisah untuk order-service
+    volumes:
+      - ./customer-service:/var/www/customer-service
+      - ./order-service:/var/www/order-service
+      - ./nginx/conf.d:/etc/nginx/conf.d  
+    depends_on:
+      - app
+      - order-app
+    networks:
+      - pesan-makanan-net
+
+  db:
+    image: mysql:5.7
+    container_name: db
+    restart: always
+    tty: true
+    ports:
+      - "10100:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pesan_makanan
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - pesan-makanan-net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    links:
+      - db
+    restart: always
+    ports:
+      - "7080:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    networks:
+      - pesan-makanan-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - pesan-makanan-net
+
+networks:
+  pesan-makanan-net:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
+  rabbitmq_data:
+    driver: local

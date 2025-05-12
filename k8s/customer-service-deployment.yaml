@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+    spec:
+      containers:
+      - name: customer-service
+        image: azhim321/customer-service:latest
+        ports:
+        - containerPort: 9000
+        env:
+        - name: RABBITMQ_HOST
+          value: "host.docker.internal"  # Untuk mengakses RabbitMQ di Docker lokal di Windows
+        - name: DB_HOST
+          value: "host.docker.internal"
+        - name: DB_PORT
+          value: "10100"  # Port MySQL di Docker lokal
+        - name: DB_DATABASE
+          value: "pesan_makanan"
+        - name: DB_USERNAME
+          value: "root"
+        - name: DB_PASSWORD
+          value: "root"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+spec:
+  selector:
+    app: customer-service
+  ports:
+  - port: 9000
+    targetPort: 9000
+    nodePort: 30000
+  type: NodePort
